@@ -13,8 +13,8 @@ public class Main {
             if (point == 1) {
                 System.out.println("Укажите месяц за который хотите ввести количество шагов:");
                 int month = scanner.nextInt();
-                while (month <= 0 || month > 12) {
-                    System.out.print("Неправильный формат ввода! Введите номер месяца от 1 до 12: ");
+                while (month < 0 || month > 11) {
+                    System.out.print("Неправильный формат ввода! Введите номер месяца от 0 до 11: ");
                     month = scanner.nextInt();
                 }
                 System.out.println("Укажите день за который хотите ввести количество шагов: ");
@@ -29,10 +29,10 @@ public class Main {
                 track.saveData(month, day, step);
                 System.out.println("Спасибо, данные сохранены");
             } else if (point == 2) {
-                System.out.println("Напишите номер месяца за который хотите получить статистику в формате 1-12, где 1 - январь, 2 - февраль, и тд");
+                System.out.println("Напишите номер месяца за который хотите получить статистику в формате 0-11, где 0 - январь, 1 - февраль, и тд");
                 int numberMonth = scanner.nextInt();
-                while (numberMonth <= 0 || numberMonth > 12) {
-                    System.out.print("Неправильный формат ввода! Введите номер месяца от 1 до 12: ");
+                while (numberMonth < 0 || numberMonth > 11) {
+                    System.out.print("Неправильный формат ввода! Введите номер месяца от 0 до 11: ");
                     numberMonth = scanner.nextInt();
                 }
                 System.out.println("Ваша статистика за " + numberMonth + " месяц:");
@@ -49,6 +49,9 @@ public class Main {
             } else if (point == 4) {
                 System.out.println("Выход");
                 break;
+            } else {
+                System.out.println("Такой команды нет, пожалуйста введите число от 1 до 4");
+
             }
         }
     }

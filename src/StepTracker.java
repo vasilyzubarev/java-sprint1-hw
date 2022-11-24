@@ -1,9 +1,9 @@
 public class StepTracker {
     Month[] months = new Month[12]; // создали массив с типом данных MonthData, и заполнили месяцами
-    int numberOfDays = 31;
-    int stepsGoal = 10_000;     // сделать метод для изменения цели на месяц
+    int numberOfDays = 30;
+    int stepsGoal = 10_000;
     Converter convert = new Converter();
-    Converter kalories = new Converter();
+
 
     StepTracker() {
         for (int i = 0; i < months.length; i++) {
@@ -12,23 +12,23 @@ public class StepTracker {
     }
 
     public void saveData(int month, int day, int steps) {
-        months[month].days[day] = steps;
+        months[month].days[day-1] = steps;
     }
 
     public void changeStepGoals(int goal) {
         stepsGoal = goal;
     }
 
-    public void calculateStatistics(int month) {    // разбить по методам, отдельный метод для лучшей серии, отдельный для суммы шагов и тд
+    public void calculateStatistics(int month) {
         int allSteps = 0;
         int maxDays = 0;
         int currentDays = 0;
-        for (int i = 1; i < numberOfDays; i++) {
+        for (int i = 0; i < numberOfDays; i++) {
             int steps = months[month].days[i];
             if (i < numberOfDays - 1) {
-                System.out.print((i) + " день: " + steps + ", ");
+                System.out.print((i+1) + " день: " + steps + ", ");
             } else {
-                System.out.print((i) + " день: " + steps);
+                System.out.print((i+1) + " день: " + steps);
             }
             if (steps >= stepsGoal) {
                 currentDays += 1;
@@ -46,7 +46,7 @@ public class StepTracker {
         System.out.println("Лучшая серия длилась: " + maxDays + " дня");
         double lol = convert.stepsInKilometers(allSteps);
         System.out.println("Пройденное расстояние: " + lol + "км");
-        double kal = kalories.caloriesCounter(allSteps);
+        double kal = convert.caloriesCounter(allSteps);
         System.out.println("Количество соженных килокалорий: " + kal);
     }
 
