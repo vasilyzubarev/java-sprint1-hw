@@ -41,7 +41,7 @@ public class StepTracker {
         }
         System.out.println();
         System.out.println("Общее количество шагов за месяц: " + allSteps);
-        System.out.println("Среднее количество шагов за месяц: " + allSteps / (numberOfDays));
+        System.out.println("Среднее количество шагов за месяц: " + allSteps / numberOfDays);
         System.out.println("Лучшая серия длилась: " + maxDays + " дня");
         double lol = convert.stepsInKilometers(allSteps);
         System.out.println("Пройденное расстояние: " + lol + "км");
