@@ -5,6 +5,7 @@ public class Main {
         Scanner scanner = new Scanner(System.in);
         StepTracker track = new StepTracker();
 
+
         while (true) {
             menu();
 
@@ -12,8 +13,17 @@ public class Main {
             if (point == 1) {
                 System.out.println("Укажите месяц за который хотите ввести количество шагов:");
                 int month = scanner.nextInt();
-                System.out.println("Укажите день за который хотите ввести количество шагов:");
+                while (month <= 0 || month > 12) {
+                    System.out.print("Неправильный формат ввода! Введите номер месяца от 1 до 12: ");
+                    month = scanner.nextInt();
+                }
+                System.out.println("Укажите день за который хотите ввести количество шагов: ");
                 int day = scanner.nextInt();
+
+                while (day <= 0 || day > 30) {
+                    System.out.print("Ошибка! Введите число от 1 до 30: ");
+                    day = scanner.nextInt();
+                }
                 System.out.println("Введите количество пройденных шагов:");
                 int step = scanner.nextInt();
                 track.saveData(month, day, step);
@@ -21,8 +31,21 @@ public class Main {
             } else if (point == 2) {
                 System.out.println("Напишите номер месяца за который хотите получить статистику в формате 1-12, где 1 - январь, 2 - февраль, и тд");
                 int numberMonth = scanner.nextInt();
+                while (numberMonth <= 0 || numberMonth > 12) {
+                    System.out.print("Неправильный формат ввода! Введите номер месяца от 1 до 12: ");
+                    numberMonth = scanner.nextInt();
+                }
                 System.out.println("Ваша статистика за " + numberMonth + " месяц:");
                 track.calculateStatistics(numberMonth);
+            } else if (point == 3) {
+                System.out.println("Введите новую цель по количеству шагов в день: ");
+                int goal = scanner.nextInt();
+                while (goal <= 0) {
+                    System.out.println("Введите цель больше нуля, ходить полезно:)");
+                    goal = scanner.nextInt();
+                }
+                track.changeStepGoals(goal);
+                System.out.println("Новая цель установлена, удачи!");
             } else if (point == 4) {
                 System.out.println("Выход");
                 break;
