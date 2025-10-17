@@ -1,0 +1,176 @@
+def fine_tune_model(new_data_file_path, 
+                   short_name_column='SHORT_NAME/ru_RU',
+                   full_name_column='FULL_NAME/ru_RU',
+                   class_code_column='Hierarchy_MTR_Name', 
+                   class_name_column='Hierarchy_MTR_Class',
+                   epochs=10,
+                   batch_size=16,
+                   validation_split=0.2):
+    """
+    Дообучает модель на новых данных с объединением краткого и полного наименования
+    """
+    
+    # Объявляем global в начале функции
+    global model, label_encoder, class_code_to_name, params
+    
+    if model is None:
+        print("⚠ Модель не загружена! Сначала загрузите модель.")
+        return False
+    
+    print("=== ДООБУЧЕНИЕ МОДЕЛИ НА НОВЫХ ДАННЫХ ===")
+    
+    try:
+        # Загружаем новые данные
+        print("1. Загрузка новых данных...")
+        if new_data_file_path.endswith('.xlsx'):
+            new_df = pd.read_excel(new_data_file_path)
+        else:
+            new_df = pd.read_csv(new_data_file_path, sep='\t', encoding='utf-8')
+        
+        print(f"✓ Загружено {len(new_df)} новых примеров")
+        print(f"✓ Колонки: {list(new_df.columns)}")
+        
+        # Проверяем наличие необходимых колонок
+        required_columns = [short_name_column, full_name_column, class_code_column, class_name_column]
+        missing_columns = [col for col in required_columns if col not in new_df.columns]
+        
+        if missing_columns:
+            print(f"✗ Отсутствуют колонки: {missing_columns}")
+            return False
+        
+        # Объединяем краткое и полное наименование
+        print("2. Объединение краткого и полного наименования...")
+        
+        def combine_names(row):
+            short_name = str(row[short_name_column]) if pd.notna(row[short_name_column]) else ""
+            full_name = str(row[full_name_column]) if pd.notna(row[full_name_column]) else ""
+            return f"{short_name} {full_name}".strip()
+        
+        new_df['combined_text'] = new_df.apply(combine_names, axis=1)
+        
+        # Предобработка объединенных текстов
+        print("3. Предобработка текстов...")
+        new_texts = new_df['combined_text'].apply(preprocess_text).tolist()
+        
+        # Подготовка меток
+        print("4. Подготовка меток...")
+        
+        # Получаем уникальные классы из новых данных
+        new_classes = new_df[class_code_column].unique()
+        print(f"✓ Уникальных классов в новых данных: {len(new_classes)}")
+        
+        # Проверяем, есть ли новые классы которых нет в текущем label_encoder
+        existing_classes = set(label_encoder.classes_)
+        new_unique_classes = set(new_classes) - existing_classes
+        
+        if new_unique_classes:
+            print(f"⚠ Найдены новые классы: {len(new_unique_classes)}")
+            print(f"   Новые классы: {list(new_unique_classes)[:10]}...")
+            
+            # Обновляем label_encoder
+            print("5. Обновление LabelEncoder...")
+            all_classes = np.concatenate([label_encoder.classes_, list(new_unique_classes)])
+            label_encoder.fit(all_classes)
+            print(f"✓ LabelEncoder обновлен: {len(label_encoder.classes_)} классов")
+            
+            # Нужно изменить выходной слой модели
+            print("6. Адаптация модели под новые классы...")
+            old_num_classes = model.layers[-1].output_shape[-1]
+            new_num_classes = len(label_encoder.classes_)
+            
+            if new_num_classes > old_num_classes:
+                # Создаем новую модель с правильным количеством классов
+                from tensorflow.keras.models import Sequential
+                from tensorflow.keras.layers import Dense
+                
+                # Сохраняем веса кроме последнего слоя
+                old_weights = [layer.get_weights() for layer in model.layers[:-1]]
+                
+                # Создаем новую модель
+                new_model = Sequential()
+                
+                # Копируем слои кроме последнего
+                for i, layer in enumerate(model.layers[:-1]):
+                    new_model.add(layer)
+                
+                # Добавляем новый выходной слой
+                new_model.add(Dense(new_num_classes, activation='softmax', name='new_output'))
+                
+                # Компилируем
+                new_model.compile(
+                    optimizer='adam',
+                    loss='categorical_crossentropy',
+                    metrics=['accuracy']
+                )
+                
+                # Восстанавливаем веса
+                for i, weights in enumerate(old_weights):
+                    if weights:  # Если у слоя есть веса
+                        new_model.layers[i].set_weights(weights)
+                
+                # Заменяем модель
+                model = new_model
+                print(f"✓ Модель адаптирована: {old_num_classes} → {new_num_classes} классов")
+        
+        # Кодируем метки
+        new_labels_encoded = label_encoder.transform(new_df[class_code_column])
+        new_y = to_categorical(new_labels_encoded, num_classes=len(label_encoder.classes_))
+        
+        # Токенизация текстов
+        print("7. Токенизация новых текстов...")
+        new_sequences = tokenizer.texts_to_sequences(new_texts)
+        new_X = pad_sequences(new_sequences, maxlen=MAX_SEQUENCE_LENGTH)
+        
+        # Обрезаем индексы до размера словаря
+        new_X = np.clip(new_X, 0, vocab_size - 1)
+        
+        # Обновляем mapping классов
+        print("8. Обновление mapping классов...")
+        new_mapping = new_df[[class_code_column, class_name_column]].drop_duplicates()
+        for _, row in new_mapping.iterrows():
+            class_code_to_name[row[class_code_column]] = row[class_name_column]
+        
+        print(f"✓ Mapping обновлен: {len(class_code_to_name)} пар код-название")
+        
+        # Дообучение модели
+        print("9. Дообучение модели...")
+        
+        # Callback для ранней остановки
+        early_stopping = EarlyStopping(
+            monitor='val_loss',
+            patience=3,
+            restore_best_weights=True,
+            verbose=1
+        )
+        
+        # Дообучаем модель
+        history = model.fit(
+            new_X, new_y,
+            batch_size=batch_size,
+            epochs=epochs,
+            validation_split=validation_split,
+            callbacks=[early_stopping],
+            verbose=1
+        )
+        
+        print("✓ Модель успешно дообучена!")
+        
+        # Сохраняем обновленные компоненты
+        print("10. Сохранение обновленных компонентов...")
+        model.save('tmc_classification_final_model.h5')
+        
+        with open('final_label_encoder.pickle', 'wb') as f:
+            pickle.dump(label_encoder, f)
+        
+        # Обновляем параметры
+        params['num_classes'] = len(label_encoder.classes_)
+        with open('model_params.json', 'w', encoding='utf-8') as f:
+            json.dump(params, f, ensure_ascii=False, indent=2)
+        
+        print("✓ Обновленные компоненты сохранены")
+        
+        return True
+        
+    except Exception as e:
+        print(f"✗ Ошибка при дообучении: {e}")
+        return False
